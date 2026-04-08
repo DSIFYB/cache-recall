@@ -69,7 +69,7 @@ recall config set ttl 3600
 
 ### 3. Подключение как MCP-сервер
 
-Добавь в настройки MCP-клиента (например, `~/.qwen/settings.json`):
+Добавь в настройки MCP-клиента (`~/.model/settings.json`):
 
 ```json
 {
@@ -186,19 +186,6 @@ python -m build
 
 # Установить локально
 pip install -e .
-```
-
-## Публикация на PyPI
-
-```bash
-# Установить инструменты
-pip install build twine
-
-# Собрать пакет
-python -m build
-
-# Опубликовать (нужен токен с pypi.org)
-python -m twine upload dist/*
 ```
 
 ## Лицензия
