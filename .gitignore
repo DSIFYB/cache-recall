@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+*.whl
+
+# Виртуальное окружение
+venv/
+.venv/
+env/
+
+# Базы данных (кэш и память — локальные данные)
+*.db
+*.sqlite
+*.sqlite3
+
+# Логи
+*.log
+
+# Конфиги (содержат локальные пути)
+config.json
+recall.json
+
+# Временные файлы
+.test_cache*
+.temp_*
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Тестовые директории
+ptest_*/
+.qwen/  
