@@ -24,8 +24,8 @@ from typing import Optional
 # ─── Константы ────────────────────────────────────────────────────────────
 
 DEFAULT_TTL = 86400           # 24 часа
-SIMILARITY_THRESHOLD = 0.75   # Порог cosine similarity
-EMBED_DIM = 128               # Размерность вектора эмбеддинга
+SIMILARITY_THRESHOLD = 0.55   # Порог cosine similarity (понижено с 0.75)
+EMBED_DIM = 256               # Размерность вектора эмбеддинга (повышено с 128)
 NGRAM_RANGE = (2, 4)          # Диапазон n-gram: 2, 3, 4 символа
 
 # ─── Логгер ───────────────────────────────────────────────────────────────
@@ -128,6 +128,43 @@ class TextEmbedder:
         dot = sum(x * y for x, y in zip(query_vec, entry_vec))
         return max(-1.0, min(1.0, dot))
 
+    def keyword_score(self, query: str, candidate: str) -> float:
+        """
+        Вычисляет релевантность на основе общих ключевых слов.
+        Fallback метод когда семантика даёт низкий score.
+
+        Использует TF-IDF-подобный подход на основе n-gram overlap.
+        """
+        if not query or not candidate:
+            return 0.0
+
+        # Токенизация: разбиваем на слова
+        q_words = set(re.findall(r'\w+', query.lower()))
+        c_words = set(re.findall(r'\w+', candidate.lower()))
+
+        if not q_words or not c_words:
+            return 0.0
+
+        # Overlap слов
+        overlap = q_words & c_words
+        if not overlap:
+            return 0.0
+
+        # Jaccard similarity + бонус за порядок слов
+        union = q_words | c_words
+        jaccard = len(overlap) / len(union)
+
+        # Бонус если слова идут в том же порядке
+        order_bonus = 0.0
+        q_word_list = re.findall(r'\w+', query.lower())
+        c_word_list = re.findall(r'\w+', candidate.lower())
+        for i in range(len(q_word_list) - 1):
+            bigram = f"{q_word_list[i]} {q_word_list[i+1]}"
+            if bigram in f"{' '.join(c_word_list)}":
+                order_bonus += 0.1
+
+        return min(1.0, jaccard + order_bonus)
+
 
 # ─── Утилиты ──────────────────────────────────────────────────────────────
 
@@ -151,11 +188,15 @@ class PromptCache:
         threshold: float = SIMILARITY_THRESHOLD,
         tags_enabled: bool = True,
         economy_enabled: bool = True,
+        auto_save: bool = False,
+        keyword_fallback: bool = True,
     ):
         self.ttl = ttl
         self.threshold = threshold
         self.tags_enabled = tags_enabled
         self.economy_enabled = economy_enabled
+        self.auto_save = auto_save
+        self.keyword_fallback = keyword_fallback
         self.embedder = TextEmbedder()
         self.db_path = db_path
         self._init_db()
@@ -397,6 +438,19 @@ class PromptCache:
                     self._record_economy(True)
                     return best_row["response"]
 
+                # 3. Keyword fallback если семантика не дала результата
+                if self.keyword_fallback and best_row and best_score < self.threshold:
+                    kw_score = self.embedder.keyword_score(query, best_row["query"])
+                    if kw_score >= 0.3:  # Минимальный порог для keyword match
+                        self._touch(conn, best_row["id"], now)
+                        conn.commit()
+                        logger.info(
+                            f"Keyword HIT (semantic={best_score:.2f}, kw={kw_score:.2f}): "
+                            f"'{query[:40]}' ≈ '{best_row['query'][:40]}'"
+                        )
+                        self._record_economy(True)
+                        return best_row["response"]
+
                 # MISS
                 logger.info(f"MISS: '{query[:50]}'")
                 self._record_economy(None)
@@ -405,6 +459,28 @@ class PromptCache:
         except sqlite3.Error as e:
             logger.error(f"Ошибка запроса к БД: {e}")
             return None
+
+    def ask_and_save(self, query: str, response: str, tags: Optional[list[str]] = None) -> tuple[bool, Optional[str]]:
+        """
+        Ищет ответ в кэше. Если не найден — сохраняет переданный ответ.
+
+        Args:
+            query: Текст запроса.
+            response: Ответ агента для сохранения (если MISS).
+            tags: Теги для сохранения (опционально).
+
+        Returns:
+            (was_cached, answer) — был ли ответ в кэше и сам ответ.
+        """
+        cached = self.ask(query)
+        if cached is not None:
+            return True, cached
+
+        # MISS — сохраняем если auto_save включён
+        if self.auto_save:
+            self.save(query, response, tags=tags)
+            logger.info(f"Auto-saved: '{query[:50]}'")
+        return False, response
 
     def save(
         self,

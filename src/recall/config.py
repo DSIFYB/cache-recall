@@ -17,17 +17,20 @@ DEFAULTS = {
     # Кэш
     "cache_db": "~/.recall/cache.db",
     "ttl": 86400,
-    "threshold": 0.75,
-    "embed_dim": 128,
+    "threshold": 0.55,  # Понижено с 0.75 для лучшего покрытия
+    "embed_dim": 256,   # Повышено с 128 для точности
     "ngram_range": [2, 4],
     "max_entries": None,
     "auto_cleanup": True,
     "auto_cleanup_interval": 3600,
+    "auto_save": False,  # Автоматически сохранять ответы агента
+    "keyword_fallback": True,  # Fallback на ключевые слова при низком score
 
     # Память ИИ
     "memory_db": "~/.recall/memory.db",
     "memory_enabled": True,
-    "memory_similarity_threshold": 0.7,
+    "memory_similarity_threshold": 0.55,  # Понижено с 0.7
+    "memory_auto_remember": False,  # Авто-сохранение фактов из разговора
 
     # Логирование
     "log_file": "~/.recall/recall.log",

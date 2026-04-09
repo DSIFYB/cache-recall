@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cache-recall"
-version = "1.0.0"
-description = "Семантический кэш и долговременная память для ИИ-агентов"
+version = "1.0.1"
+description = "Semantic cache and long-term memory for AI agents"
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
@@ -35,9 +35,9 @@ dev = [
 recall = "scripts.recall_cli:main"
 
 [project.urls]
-Homepage = "https://github.com/YOUR_USERNAME/recall"
-Repository = "https://github.com/YOUR_USERNAME/recall"
-Issues = "https://github.com/YOUR_USERNAME/recall/issues"
+Homepage = "https://github.com/DSIFYB/cache-recall"
+Repository = "https://github.com/DSIFYB/cache-recall"
+Issues = "https://github.com/DSIFYB/cache-recall/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]

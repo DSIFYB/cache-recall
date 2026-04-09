@@ -12,6 +12,7 @@ memory.py — Система долговременной памяти ИИ-аг
 import json
 import logging
 import os
+import re
 import sqlite3
 import time
 from typing import Optional
@@ -43,8 +44,9 @@ class Memory:
     Каждый факт имеет категорию, важность и статус верификации.
     """
 
-    def __init__(self, db_path: str = "recall.db"):
+    def __init__(self, db_path: str = "recall.db", keyword_fallback: bool = True):
         self.db_path = db_path
+        self.keyword_fallback = keyword_fallback
         self.embedder = TextEmbedder()
         self._init_db()
 
@@ -162,7 +164,8 @@ class Memory:
             return None
 
     def recall_memories(
-        self, query: str, limit: int = 5, category: Optional[str] = None
+        self, query: str, limit: int = 5, category: Optional[str] = None,
+        min_similarity: float = 0.3,
     ) -> list[dict]:
         """
         Находит релевантные факты по запросу.
@@ -171,6 +174,7 @@ class Memory:
             query: Текст запроса для семантического поиска.
             limit: Максимальное количество результатов.
             category: Фильтр по категории (опционально).
+            min_similarity: Минимальный порог схожести (для keyword fallback).
 
         Returns:
             Список фактов, отсортированный по релевантности.
@@ -200,6 +204,16 @@ class Memory:
                     score = self.embedder.similarity_from_embedding(
                         query_vec, entry_vec
                     )
+
+                    # Keyword fallback если семантика дала низкий score
+                    if self.keyword_fallback and score < min_similarity:
+                        kw_score = self.embedder.keyword_score(query, row["fact"])
+                        if kw_score >= 0.2:
+                            score = max(score, kw_score * 0.8)  # Keyword с весом 0.8
+
+                    # Фильтруем по минимальному порогу
+                    if score < min_similarity:
+                        continue
 
                     # Обновляем счётчик доступа
                     conn.execute(

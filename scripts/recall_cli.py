@@ -60,9 +60,11 @@ cache = PromptCache(
     threshold=config.get("threshold"),
     tags_enabled=config.get("tags_enabled", True),
     economy_enabled=config.get("economy_tracking", True),
+    auto_save=config.get("auto_save", False),
+    keyword_fallback=config.get("keyword_fallback", True),
 )
 economy = EconomyTracker(cache_db)
-memory = Memory(db_path=memory_db) if config.get("memory_enabled", True) else None
+memory = Memory(db_path=memory_db, keyword_fallback=config.get("keyword_fallback", True)) if config.get("memory_enabled", True) else None
 
 
 # ─── Кэш ──────────────────────────────────────────────────────────────────
@@ -73,7 +75,22 @@ def cmd_ask(args):
     if result is not None:
         print(f"[CACHE HIT] {result}")
     else:
-        print("[CACHE MISS] Ответ не найден. Используйте 'save'.")
+        if cache.auto_save:
+            print("[CACHE MISS] (ответ будет сохранён автоматически после генерации)")
+        else:
+            print("[CACHE MISS] Ответ не найден. Используйте 'answer' или 'save'.")
+
+
+def cmd_answer(args):
+    """Ищет ответ, если нет — сохраняет переданный ответ."""
+    tag_list = [t.strip() for t in args.tags.split(",")] if args.tags else []
+    was_cached, answer = cache.ask_and_save(
+        args.query, args.response, tags=tag_list if tag_list else None
+    )
+    if was_cached:
+        print(f"[CACHE HIT] {answer}")
+    else:
+        print(f"[AUTO-SAVED] Ответ сохранён для: {args.query[:60]}")
 
 
 def cmd_save(args):
@@ -295,6 +312,12 @@ def main():
     p = sub.add_parser("ask", help="Найти ответ")
     p.add_argument("query")
     p.set_defaults(func=cmd_ask)
+
+    p = sub.add_parser("answer", help="Найти ответ или сохранить если нет")
+    p.add_argument("query")
+    p.add_argument("response")
+    p.add_argument("--tags", help="Теги через запятую")
+    p.set_defaults(func=cmd_answer)
 
     p = sub.add_parser("save", help="Сохранить ответ")
     p.add_argument("query")

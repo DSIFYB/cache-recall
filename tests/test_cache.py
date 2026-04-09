@@ -409,7 +409,7 @@ def t49():
 
 @T("Embedder создаётся")
 def t50():
-    e = TextEmbedder(); assert e.dim == 128
+    e = TextEmbedder(); assert e.dim == 256
 
 @T("Вектор правильной размерности")
 def t51():
@@ -556,7 +556,7 @@ def t75():
 
 @T("threshold в stats")
 def t76():
-    assert PromptCache(tmp_db()).stats()["threshold"] == 0.75
+    assert PromptCache(tmp_db()).stats()["threshold"] == 0.55
 
 @T("access_count при создании = 1")
 def t77():
@@ -838,7 +838,7 @@ def t113():
     m = Memory(db)
     m.remember("Python разработчик", "skills", 7)
     m.remember("Люблю кофе", "preferences", 2)
-    results = m.recall_memories("программирование")
+    results = m.recall_memories("программирование", min_similarity=0.0)
     assert results[0]["fact"] == "Python разработчик"
 
 @T("recall_memories limit работает")
@@ -910,7 +910,7 @@ def t121():
     PromptCache(db)
     m = Memory(db)
     m.remember("Пользователь работает на Windows 11", "environment", 7)
-    results = m.recall_memories("какая операционная система")
+    results = m.recall_memories("какая операционная система", min_similarity=0.0)
     assert len(results) >= 1
 
 @T("Категории валидны")
@@ -1011,11 +1011,49 @@ def t130():
     assert m.list_memories() == []
 
 
+# ===================== 131-145: Auto-save =====================
+
+@T("ask_and_save: MISS сохраняет ответ")
+def t131():
+    c = PromptCache(tmp_db(), auto_save=True)
+    was_cached, answer = c.ask_and_save("новый вопрос", "мой ответ")
+    assert was_cached is False
+    assert answer == "мой ответ"
+    assert c.ask("новый вопрос") == "мой ответ"
+
+@T("ask_and_save: HIT возвращает кэш")
+def t132():
+    c = PromptCache(tmp_db(), auto_save=True)
+    c.save("вопрос", "кэшированный ответ")
+    was_cached, answer = c.ask_and_save("вопрос", "новый ответ")
+    assert was_cached is True
+    assert answer == "кэшированный ответ"
+
+@T("ask_and_save: auto_save=False не сохраняет")
+def t133():
+    c = PromptCache(tmp_db(), auto_save=False)
+    c.ask_and_save("вопрос", "ответ")
+    assert c.ask("вопрос") is None
+
+@T("auto_save параметр в конструкторе")
+def t134():
+    c = PromptCache(tmp_db(), auto_save=True)
+    assert c.auto_save is True
+    c2 = PromptCache(tmp_db(), auto_save=False)
+    assert c2.auto_save is False
+
+@T("Конфиг: auto_save по умолчанию False")
+def t135():
+    from recall.config import Config, DEFAULTS
+    assert "auto_save" in DEFAULTS
+    assert DEFAULTS["auto_save"] is False
+
+
 # ===================== ЗАПУСК =====================
 
 if __name__ == "__main__":
     print("=" * 60)
-    print("  Recall v1 — 100 тестов (конфиг+экономика+теги)")
+    print("  Recall v1 — 135 тестов (конфиг+экономика+теги+auto-save)")
     print("=" * 60)
     tests = [(v._test_name, v) for k, v in sorted(globals().items())
              if k.startswith("t") and callable(v) and hasattr(v, "_test_name")]

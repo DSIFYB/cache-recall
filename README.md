@@ -12,12 +12,13 @@ Cache-Recall helps AI assistants remember answers and facts about the user — s
 
 | Feature | Description |
 |---|---|
-| **Answer Cache** | Semantic search — finds similar questions, not just exact matches |
+| **Answer Cache** | Semantic search + keyword fallback — finds similar even with low semantic score |
+| **Auto-Caching** | auto_save option — answers are saved automatically |
 | **AI Memory** | Long-term facts about the user (skills, projects, preferences) |
 | **TTL** | Auto-expiration of cached answers |
 | **Tags** | Organize entries by categories |
 | **Economy** | Statistics: how many requests were saved |
-| **MCP Server** | 17 tools for MCP clients (Qwen, Claude Desktop) |
+| **MCP Server** | 19 tools for MCP clients (Qwen, Claude Desktop) |
 | **Local** | All data stays on your computer, nothing leaves to the cloud |
 
 ### Installation
@@ -78,7 +79,7 @@ Add to your MCP client settings (e.g., `~/.qwen/settings.json`):
 ```json
 {
   "mcpServers": {
-    "recall": {
+    "cache-recall": {
       "command": "python",
       "args": ["-m", "recall.mcp_server"]
     }
@@ -86,7 +87,7 @@ Add to your MCP client settings (e.g., `~/.qwen/settings.json`):
 }
 ```
 
-After connecting, the AI assistant gets 17 tools: `ask`, `save`, `remember`, `recall_memories`, `cache_stats`, `economy_stats`, `memory_stats`, `config_get/set`, `tag_stats`, `cache_list`, `list_memories`, `cache_cleanup`, `cache_clear`, `update_memory`, `forget_memory`.
+After connecting, the AI assistant gets 19 tools: `ask`, `answer_and_save`, `save`, `remember`, `recall_memories`, `cache_stats`, `economy_stats`, `memory_stats`, `config_get/set`, `tag_stats`, `cache_list`, `list_memories`, `cache_cleanup`, `cache_clear`, `update_memory`, `forget_memory`.
 
 ### Configuration
 
@@ -97,7 +98,10 @@ Settings stored in `~/.recall/config.json`. Defaults on first run:
   "cache_db": "~/.recall/cache.db",
   "memory_db": "~/.recall/memory.db",
   "ttl": 86400,
-  "threshold": 0.75,
+  "threshold": 0.55,
+  "embed_dim": 256,
+  "auto_save": false,
+  "keyword_fallback": true,
   "log_file": "~/.recall/recall.log",
   "log_level": "INFO",
   "tags_enabled": true,
@@ -126,8 +130,8 @@ facts = memory.recall_memories("what languages does the user know?")
 ### Development
 
 ```bash
-git clone https://github.com/DSIFYB/recall.git
-cd recall
+git clone https://github.com/DSIFYB/cache-recall.git
+cd cache-recall
 pip install -r requirements.txt
 python tests/test_cache.py
 ```
@@ -140,12 +144,13 @@ python tests/test_cache.py
 
 | Функция | Описание |
 |---|---|
-| **Кэш ответов** | Семантический поиск — находит похожие вопросы, не только точные совпадения |
+| **Кэш ответов** | Семантический поиск + keyword fallback — находит даже при низком semantic score |
+| **Авто-кэширование** | Опция auto_save — ответы сохраняются автоматически |
 | **Память ИИ** | Долговременные факты о пользователе (навыки, проекты, предпочтения) |
 | **TTL** | Автоустаревание кэшированных ответов |
 | **Теги** | Группировка записей по категориям |
 | **Экономика** | Статистика: сколько запросов сэкономлено |
-| **MCP-сервер** | 17 инструментов для MCP-клиентов (Qwen, Claude Desktop) |
+| **MCP-сервер** | 19 инструментов для MCP-клиентов (Qwen, Claude Desktop) |
 | **Локальный** | Все данные на твоём компьютере, ничего не уходит в облако |
 
 ### Установка
@@ -201,12 +206,12 @@ recall config set ttl 3600
 
 #### 3. Подключение как MCP-сервер
 
-Добавь в настройки MCP-клиента (`~/.model/settings.json`):
+Добавь в настройки MCP-клиента (`~/.qwen/settings.json`):
 
 ```json
 {
   "mcpServers": {
-    "recall": {
+    "cache-recall": {
       "command": "python",
       "args": ["-m", "recall.mcp_server"]
     }
@@ -214,7 +219,7 @@ recall config set ttl 3600
 }
 ```
 
-После подключения ИИ-ассистент получит 17 инструментов: `ask`, `save`, `remember`, `recall_memories`, `cache_stats`, `economy_stats`, `memory_stats`, `config_get/set`, `tag_stats`, `cache_list`, `list_memories`, `cache_cleanup`, `cache_clear`, `update_memory`, `forget_memory`.
+После подключения ИИ-ассистент получит 19 инструментов: `ask`, `answer_and_save`, `save`, `remember`, `recall_memories`, `cache_stats`, `economy_stats`, `memory_stats`, `config_get/set`, `tag_stats`, `cache_list`, `list_memories`, `cache_cleanup`, `cache_clear`, `update_memory`, `forget_memory`.
 
 ### Конфигурация
 
@@ -225,7 +230,10 @@ recall config set ttl 3600
   "cache_db": "~/.recall/cache.db",
   "memory_db": "~/.recall/memory.db",
   "ttl": 86400,
-  "threshold": 0.75,
+  "threshold": 0.55,
+  "embed_dim": 256,
+  "auto_save": false,
+  "keyword_fallback": true,
   "log_file": "~/.recall/recall.log",
   "log_level": "INFO",
   "tags_enabled": true,
@@ -254,8 +262,8 @@ facts = memory.recall_memories("какие языки знает?")
 ### Разработка
 
 ```bash
-git clone https://github.com/DSIFYB/recall.git
-cd recall
+git clone https://github.com/DSIFYB/cache-recall.git
+cd cache-recall
 pip install -r requirements.txt
 python tests/test_cache.py
 ```
@@ -265,3 +273,21 @@ python tests/test_cache.py
 ## License
 
 MIT
+
+---
+
+## Publishing to PyPI
+
+```bash
+# 1. Install build tools
+pip install build twine
+
+# 2. Build package
+python -m build
+
+# 3. Upload to PyPI
+twine upload dist/*
+
+# Or test on TestPyPI first
+twine upload --repository testpypi dist/*
+```

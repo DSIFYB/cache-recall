@@ -67,13 +67,15 @@ cache = PromptCache(
     threshold=config.get("threshold"),
     tags_enabled=config.get("tags_enabled", True),
     economy_enabled=config.get("economy_tracking", True),
+    auto_save=config.get("auto_save", False),
+    keyword_fallback=config.get("keyword_fallback", True),
 )
 
 # Трекер экономии (в cache.db)
 economy = EconomyTracker(cache_db)
 
 # Память ИИ (отдельная БД)
-memory = Memory(db_path=memory_db) if config.get("memory_enabled", True) else None
+memory = Memory(db_path=memory_db, keyword_fallback=config.get("keyword_fallback", True)) if config.get("memory_enabled", True) else None
 
 
 # ─── Основные инструменты ─────────────────────────────────────────────────
@@ -87,11 +89,33 @@ def ask(query: str) -> str:
     Если найден — возвращает [CACHE HIT] + ответ.
     Если нет — возвращает [CACHE MISS]. Агент должен сам сгенерировать ответ
     и вызвать save().
+
+    Если включён auto_save — ответ сохраняется автоматически.
     """
     result = cache.ask(query)
     if result is not None:
         return f"[CACHE HIT] {result}"
+    
+    if cache.auto_save:
+        return "[CACHE MISS] (ответ будет сохранён автоматически после генерации)"
     return "[CACHE MISS]"
+
+
+@mcp.tool()
+def answer_and_save(query: str, response: str, tags: str = "") -> str:
+    """
+    Сохраняет ответ агента для запроса (используется для авто-кэширования).
+
+    Args:
+        query: Текст запроса.
+        response: Ответ агента.
+        tags: Теги через запятую (опционально), например: #python,#work
+    """
+    tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else []
+    was_cached, answer = cache.ask_and_save(query, response, tags=tag_list if tag_list else None)
+    if was_cached:
+        return f"[CACHE HIT] {answer}"
+    return f"[AUTO-SAVED] Ответ сохранён для: {query[:60]}"
 
 
 @mcp.tool()
